@@ -190,6 +190,59 @@ end as YearsDifference
 from denisdata;
 
 -- Find products whose UnitCost is more than 50% of UnitPrice.
+select productname,
+sum(UnitCost) as TotalUnitCost,
+sum(UnitPrice) as TotalUnitPrice
+from denisdata
+group by productname
+having sum(UnitCost)> 0.5*sum(UnitPrice);
 
+
+
+-- Find top 2 Cities in each State based on total UnitsSold.
+with cte as (select state,
+city,
+sum(UnitsSold) as TotalUnitsSold,
+dense_rank() over(partition by state order by sum(UnitsSold) desc) as rnk
+from denisdata
+group by state,city)
+select state,
+city,
+TotalUnitsSold
+from cte 
+where rnk<=2;
+
+-- Identify if any two products have exactly the same UnitPrice and UnitCost.
+with cte as (select productname,
+UnitCost,
+UnitPrice,
+count(distinct productname) as cnt
+from denisdata
+group by 1,2,3)
+select productname,
+unitcost,
+unitprice
+from cte 
+where cnt>1;
 select * from denisdata
 order by hiredate desc;
+
+
+-- Find monthly trend of TotalRevenue (Year-Month based).
+with cte as (select year(date) as saleyear,
+month(date) as salemonth,
+sum(Totalrevenue) as CurrentMnthRevenue
+from denisdata
+group by year(date),month(date)
+),
+cte2 as (select Saleyear,
+Salemonth,
+CurrentMnthRevenue,
+lag(CurrentMnthRevenue) over(order by Saleyear,Salemonth) as PreviousMnthRevenue
+from cte)
+select Saleyear,
+Salemonth,
+CurrentMnthRevenue,
+PreviousMnthRevenue,
+concat(round(((CurrentMnthRevenue-PreviousMnthRevenue)/PreviousMnthRevenue),2),'%') as PercentChange
+from cte2;
